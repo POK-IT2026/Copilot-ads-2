@@ -1,0 +1,25 @@
+# dependencias (se instalan dentro de la imagen con npm ci)
+node_modules/
+
+# next.js
+.next/
+out/
+
+# control de versiones
+.git/
+.gitignore
+
+# base de datos local (se monta como volumen en runtime)
+db/*.db
+db/*.db-shm
+db/*.db-wal
+
+# variables de entorno -- nunca deben entrar al contexto de build
+.env*
+!.env.local.example
+!.env.production.example
+
+# misc
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*

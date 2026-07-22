@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  /* Superficies y tinta: pergamino cálido, no el "cream" genérico de plantilla */
+  --color-page: #f7f5f0;
+  --color-surface: #fcfaf6;
+  --color-ink: #171410;
+  --color-ink-2: #55504a;
+  --color-muted: #8c887f;
+  --color-line: #e3ddd2;
+
+  /* Sidebar oscuro (misma temperatura cálida que el resto de la paleta) */
+  --color-sidebar: #1a1613;
+  --color-sidebar-ink: #c3beb2;
+
+  /* Acento — cobre/óxido: la señal de "gasto/atención" del panel, en vez
+     del azul de SaaS por defecto. Verificado AA (>=4.5:1) sobre blanco,
+     page y surface. */
+  --color-accent: #a8481a;
+
+  /* Estados (reservados para prioridades y status, con ícono + etiqueta) */
+  --color-good: #0ca30c;
+  --color-good-ink: #006300;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Tipografía de titulares con carácter propio; el cuerpo y las tablas se
+   quedan en system-ui por velocidad y máxima legibilidad de datos. */
+h1 {
+  font-family: var(--font-display), system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}

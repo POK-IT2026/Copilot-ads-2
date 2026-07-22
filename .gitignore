@@ -1,0 +1,28 @@
+# dependencias
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# base de datos local
+db/*.db
+db/*.db-shm
+db/*.db-wal
+
+# variables de entorno (nunca commitear tokens)
+.env*
+!.env.local.example
+!.env.production.example
+
+# misc
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*
+
+# herramientas locales de Claude Code / skills (no son parte de la app)
+.agents/
+.claude/settings.local.json
+.claude/skills/
+skills-lock.json

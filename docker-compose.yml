@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: campaign-copilot-v2
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_PATH: /app/db/campaign_copilot.db
+    volumes:
+      # Persistencia de SQLite fuera del contenedor
+      - ./db:/app/db
+    restart: unless-stopped

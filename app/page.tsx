@@ -1,7 +1,8 @@
+import ComparePeriodPicker from "@/components/ComparePeriodPicker";
 import GoogleSyncButton from "@/components/GoogleSyncButton";
 import KpiCard from "@/components/KpiCard";
 import SpendChart from "@/components/SpendChart";
-import { addDays, getPeriodLengthDays, getPreviousPeriod } from "@/lib/dateRanges";
+import { addDays, getComparisonPeriod, getPeriodLengthDays, type ComparePreset } from "@/lib/dateRanges";
 import { getGoogleAccounts, getMetaAccounts } from "@/lib/env";
 import { type SearchParams } from "@/lib/filters";
 import { fmtDecimal, fmtInt, fmtMoney, fmtPercent } from "@/lib/format";
@@ -87,7 +88,13 @@ export default async function Home({
   const googleConnected = googleAdsConnected();
   const googleError = getParam(sp, "google_error");
   const googleJustConnected = getParam(sp, "google_connected") === "1";
-  const previousPeriod = getPreviousPeriod(dateFrom, dateTo);
+  const comparePreset = (getParam(sp, "comparePreset") as ComparePreset | undefined) ?? "previous";
+  const compareFrom = getParam(sp, "compareFrom");
+  const compareTo = getParam(sp, "compareTo");
+  const previousPeriod = getComparisonPeriod(comparePreset, dateFrom, dateTo, {
+    dateFrom: compareFrom,
+    dateTo: compareTo,
+  });
 
   const meta = metaAccount
     ? getMetaKpis(metaAccount, dateFrom, dateTo)
@@ -156,20 +163,17 @@ export default async function Home({
       : [];
 
   const totalSpend = meta.spend + google.cost;
-  const totalConversions = meta.results + google.conversions;
+  // Contactos totales = leads de Meta + mensajes de Meta iniciados + conversiones de Google.
+  // meta.results ya es leads + messages (ver lib/meta/sync.ts), así que sumarlo con
+  // google.conversions da el total de contactos generados por ambas plataformas.
+  const totalContacts = meta.results + google.conversions;
   const totalClicks = meta.clicks + google.clicks;
-  const totalImpressions = meta.impressions + google.impressions;
-  const globalCpl = totalConversions > 0 ? totalSpend / totalConversions : 0;
-  const globalCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const globalCpl = totalContacts > 0 ? totalSpend / totalContacts : 0;
   const globalCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
   const previousSpend = previousMeta.spend + previousGoogle.cost;
-  const previousConversions = previousMeta.results + previousGoogle.conversions;
+  const previousContacts = previousMeta.results + previousGoogle.conversions;
   const previousClicks = previousMeta.clicks + previousGoogle.clicks;
-  const previousImpressions = previousMeta.impressions + previousGoogle.impressions;
-  const previousGlobalCpl =
-    previousConversions > 0 ? previousSpend / previousConversions : 0;
-  const previousGlobalCtr =
-    previousImpressions > 0 ? (previousClicks / previousImpressions) * 100 : 0;
+  const previousGlobalCpl = previousContacts > 0 ? previousSpend / previousContacts : 0;
   const previousGlobalCpc = previousClicks > 0 ? previousSpend / previousClicks : 0;
 
   const metaByDate = new Map(metaSeries.map((point) => [point.date, point]));
@@ -212,14 +216,15 @@ export default async function Home({
         (previousGoogleByDate.get(previousDate)?.spend ?? 0),
     };
   });
-  const leadsSeries = currentDates.map((date, index) => {
+  // Contactos totales diarios = resultados de Meta (leads + mensajes) + conversiones de Google.
+  const contactsSeries = currentDates.map((date, index) => {
     const previousDate = addDays(previousPeriod.dateFrom, index);
     return {
       date,
-      spend: (metaByDate.get(date)?.leads ?? 0) + (googleByDate.get(date)?.conversions ?? 0),
+      spend: (metaByDate.get(date)?.results ?? 0) + (googleByDate.get(date)?.conversions ?? 0),
       previousDate,
       previousSpend:
-        (previousMetaByDate.get(previousDate)?.leads ?? 0) +
+        (previousMetaByDate.get(previousDate)?.results ?? 0) +
         (previousGoogleByDate.get(previousDate)?.conversions ?? 0),
     };
   });
@@ -239,9 +244,9 @@ export default async function Home({
     },
     { label: "Gasto total", current: totalSpend, previous: previousSpend, kind: "money" },
     {
-      label: "Conversiones totales",
-      current: totalConversions,
-      previous: previousConversions,
+      label: "Contactos totales",
+      current: totalContacts,
+      previous: previousContacts,
       kind: "decimal",
     },
     {
@@ -255,12 +260,6 @@ export default async function Home({
       current: google.conversions,
       previous: previousGoogle.conversions,
       kind: "decimal",
-    },
-    {
-      label: "CTR global",
-      current: globalCtr,
-      previous: previousGlobalCtr,
-      kind: "percent",
     },
     {
       label: "CPC global",
@@ -288,11 +287,19 @@ export default async function Home({
         </div>
       </div>
 
+      <ComparePeriodPicker />
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         <KpiCard
+          label="Contactos totales"
+          value={fmtDecimal(totalContacts)}
+          sub={`Ant. ${fmtDecimal(previousContacts)} | Meta: ${fmtInt(meta.leads)} leads + ${fmtInt(meta.messages)} msjs | Google: ${fmtDecimal(google.conversions)}`}
+          delta={kpiDelta(totalContacts, previousContacts)}
+        />
+        <KpiCard
           label="CPL global"
-          value={totalConversions > 0 ? fmtMoney(globalCpl) : "-"}
-          sub={`Ant. ${fmtMoney(previousGlobalCpl)} | ${fmtDecimal(totalConversions)} conversiones`}
+          value={totalContacts > 0 ? fmtMoney(globalCpl) : "-"}
+          sub={`Ant. ${fmtMoney(previousGlobalCpl)} | ${fmtDecimal(totalContacts)} contactos`}
           delta={kpiDelta(globalCpl, previousGlobalCpl, true)}
         />
         <KpiCard
@@ -326,12 +333,6 @@ export default async function Home({
           delta={kpiDelta(google.cost, previousGoogle.cost, true)}
         />
         <KpiCard
-          label="CTR global"
-          value={fmtPercent(globalCtr)}
-          sub={`Ant. ${fmtPercent(previousGlobalCtr)}`}
-          delta={kpiDelta(globalCtr, previousGlobalCtr)}
-        />
-        <KpiCard
           label="CPC global"
           value={fmtMoney(globalCpc)}
           sub={`Ant. ${fmtMoney(previousGlobalCpc)}`}
@@ -340,6 +341,14 @@ export default async function Home({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
+        <div className="xl:col-span-2">
+          <SpendChart
+            data={contactsSeries}
+            title="Contactos totales (Meta + Google, incluye mensajes)"
+            previousLabel="Periodo anterior"
+            valueFormat="count"
+          />
+        </div>
         <SpendChart
           data={cplSeries}
           title="CPL diario global"
@@ -350,14 +359,6 @@ export default async function Home({
           title="Gasto diario total"
           previousLabel="Periodo anterior"
         />
-        <div className="xl:col-span-2">
-          <SpendChart
-            data={leadsSeries}
-            title="Leads totales (Meta + Google)"
-            previousLabel="Periodo anterior"
-            valueFormat="count"
-          />
-        </div>
       </div>
 
       <section>

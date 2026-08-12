@@ -42,6 +42,19 @@ npm run seed
 | `ANTHROPIC_API_KEY` | Opcional — habilita el análisis con IA |
 | `ANTHROPIC_MODEL` | Opcional (default `claude-opus-4-8`) |
 | `DATABASE_PATH` | Opcional — ruta del archivo SQLite |
+| `AUTO_SYNC_INTERVAL_MINUTES` | Opcional — cada cuánto sincroniza en segundo plano (default `60`) |
+| `AUTO_SYNC_WINDOW_DAYS` | Opcional — ventana de días hacia atrás por corrida (default `30`) |
+| `AUTO_SYNC_DISABLED` | Opcional — pon `1` para apagar el sync automático |
+
+## Sync automático
+
+Al arrancar el server (`npm run dev` o `npm start`/Docker), [instrumentation.ts](instrumentation.ts)
+prende un timer en segundo plano ([lib/autoSync.ts](lib/autoSync.ts)) que sincroniza Meta Ads y
+Google Ads (si está conectado) cada hora, sin necesidad de darle a "Actualizar". Cada corrida
+trae los últimos `AUTO_SYNC_WINDOW_DAYS` días (default 30) para todas las cuentas configuradas en
+`META_AD_ACCOUNT_IDS` / `GOOGLE_ADS_CUSTOMER_IDS`. Los syncs de Meta quedan registrados en la misma
+tabla que usa el botón manual, así que "Último sync" en `/meta-ads` también refleja las corridas
+automáticas. El botón "Actualizar" sigue funcionando igual para forzar un refresh inmediato.
 
 ## Páginas
 

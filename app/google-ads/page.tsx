@@ -133,6 +133,16 @@ export default async function GoogleAdsPage({
           </div>
 
           <div className="grid gap-5 xl:grid-cols-2">
+            <div className="xl:col-span-2">
+              <SpendChart
+                title="Leads diarios Google"
+                valueFormat="count"
+                data={series.map((point) => ({
+                  date: point.date,
+                  spend: point.conversions,
+                }))}
+              />
+            </div>
             <SpendChart
               title="CPL diario Google"
               data={series.map((point) => ({

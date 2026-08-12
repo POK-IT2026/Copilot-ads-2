@@ -147,6 +147,10 @@ export default async function MetaDashboard({
   );
   const campaignRows = withPreviousCampaigns(campaigns, previousCampaigns);
   const hasCurrentData = series.length > 0 || campaigns.length > 0;
+  // Contactos totales = leads + mensajes de campañas iniciados (leads y mensajes se
+  // mantienen también como tarjetas separadas).
+  const totalContacts = kpis.leads + kpis.messages;
+  const previousTotalContacts = previousKpis.leads + previousKpis.messages;
 
   return (
     <div className="space-y-5">
@@ -175,7 +179,13 @@ export default async function MetaDashboard({
         />
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-9">
+        <KpiCard
+          label="Contactos totales"
+          value={fmtInt(totalContacts)}
+          sub={`${kpiSub(previousTotalContacts, "int")} · ${fmtInt(kpis.leads)} leads + ${fmtInt(kpis.messages)} mensajes`}
+          delta={delta(totalContacts, previousTotalContacts)}
+        />
         <KpiCard
           label="CPL"
           value={kpis.results > 0 ? fmtMoney(kpis.cpl) : "—"}

@@ -39,3 +39,36 @@ export function addDays(date: string, days: number): string {
   next.setUTCDate(next.getUTCDate() + days);
   return formatIsoDate(next);
 }
+
+export type ComparePreset = "previous" | "7d" | "30d" | "custom";
+
+/** Ventana de `days` días que termina justo un día antes de `beforeDate`. */
+function trailingWindow(beforeDate: string, days: number): DateRange {
+  const to = parseIsoDate(beforeDate);
+  to.setUTCDate(to.getUTCDate() - 1);
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - days + 1);
+  return { dateFrom: formatIsoDate(from), dateTo: formatIsoDate(to) };
+}
+
+/**
+ * Resuelve el periodo de comparación según el preset elegido:
+ * - "previous": mismo número de días, inmediatamente anterior (default histórico).
+ * - "7d" / "30d": ventana fija de 7 o 30 días justo antes de `dateFrom`.
+ * - "custom": rango explícito (`custom.dateFrom`/`custom.dateTo`); si falta alguno, cae a "previous".
+ */
+export function getComparisonPeriod(
+  preset: ComparePreset,
+  dateFrom: string,
+  dateTo: string,
+  custom?: { dateFrom?: string; dateTo?: string }
+): DateRange {
+  if (preset === "custom" && custom?.dateFrom && custom?.dateTo) {
+    return custom.dateFrom <= custom.dateTo
+      ? { dateFrom: custom.dateFrom, dateTo: custom.dateTo }
+      : { dateFrom: custom.dateTo, dateTo: custom.dateFrom };
+  }
+  if (preset === "7d") return trailingWindow(dateFrom, 7);
+  if (preset === "30d") return trailingWindow(dateFrom, 30);
+  return getPreviousPeriod(dateFrom, dateTo);
+}

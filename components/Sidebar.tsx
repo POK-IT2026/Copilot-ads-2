@@ -28,6 +28,7 @@ const OVERVIEW_ITEMS: NavItem[] = [
 const GOOGLE_ITEMS: NavItem[] = [
   { href: "/google-ads", label: "Dashboard", exact: true },
   { href: "/google-ads/campaigns", label: "Campanas" },
+  { href: "/google-ads/ad-groups", label: "Grupos de anuncios" },
   { href: "/google-ads/keywords", label: "Palabras clave" },
   { href: "/google-ads/top-performers", label: "Top performance" },
   { href: "/google-ads/recommendations", label: "Recomendaciones" },

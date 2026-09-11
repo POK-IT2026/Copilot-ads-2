@@ -444,10 +444,11 @@ export default async function Home({
             {googleConnected && googleAccount && (
               <GoogleSyncButton accountId={googleAccount} dateFrom={dateFrom} dateTo={dateTo} />
             )}
+            {/* Link y no un anchor plano: Next le pone el basePath /media solo.
+                Con <a href="/google-ads"> el navegador pedía la raíz del dominio,
+                nginx no lo reconocía como Media Suite y Laravel devolvía al
+                selector de suites. */}
             {googleConnected && (
-              {/* Link, no <a>: Next le pone el basePath /media solo. Con un
-                  anchor plano el navegador pedía /google-ads, nginx no lo
-                  reconocía como Media Suite y Laravel devolvía al selector. */}
               <Link
                 href={`/google-ads?dateFrom=${dateFrom}&dateTo=${dateTo}`}
                 className="inline-flex h-9 items-center rounded-md border border-line bg-page px-4 text-sm font-medium text-ink-2 hover:bg-surface hover:text-ink"

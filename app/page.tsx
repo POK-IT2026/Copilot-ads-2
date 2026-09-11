@@ -2,6 +2,7 @@ import ComparePeriodPicker from "@/components/ComparePeriodPicker";
 import GoogleSyncButton from "@/components/GoogleSyncButton";
 import KpiCard from "@/components/KpiCard";
 import SpendChart from "@/components/SpendChart";
+import Link from "next/link";
 import { BASE_PATH } from "@/lib/api-fetch";
 import { addDays, getComparisonPeriod, getPeriodLengthDays, type ComparePreset } from "@/lib/dateRanges";
 import { getGoogleAccounts, getMetaAccounts } from "@/lib/env";
@@ -444,12 +445,15 @@ export default async function Home({
               <GoogleSyncButton accountId={googleAccount} dateFrom={dateFrom} dateTo={dateTo} />
             )}
             {googleConnected && (
-              <a
+              {/* Link, no <a>: Next le pone el basePath /media solo. Con un
+                  anchor plano el navegador pedía /google-ads, nginx no lo
+                  reconocía como Media Suite y Laravel devolvía al selector. */}
+              <Link
                 href={`/google-ads?dateFrom=${dateFrom}&dateTo=${dateTo}`}
                 className="inline-flex h-9 items-center rounded-md border border-line bg-page px-4 text-sm font-medium text-ink-2 hover:bg-surface hover:text-ink"
               >
                 Ver Google Ads
-              </a>
+              </Link>
             )}
           </div>
         </div>

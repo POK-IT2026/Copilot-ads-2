@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -12,7 +13,7 @@ export default function RecalculateButton() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/budget-navigator/recalculate", { method: "POST" });
+      const res = await apiFetch("/api/budget-navigator/recalculate", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
       router.refresh();

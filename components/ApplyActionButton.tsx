@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ACTION_LABELS, type ActionKey } from "@/lib/recommendationActionRules";
@@ -39,7 +40,7 @@ export default function ApplyActionButton({
     setPhase("loading");
     setError(null);
     try {
-      const res = await fetch(`/api/recommendations/${recId}/preview`, {
+      const res = await apiFetch(`/api/recommendations/${recId}/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, action }),
@@ -58,7 +59,7 @@ export default function ApplyActionButton({
     setPhase("applying");
     setError(null);
     try {
-      const res = await fetch(`/api/recommendations/${recId}/apply`, {
+      const res = await apiFetch(`/api/recommendations/${recId}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, action }),

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import SpendChart from "./SpendChart";
 import { fmtDecimal, fmtMoney, fmtPercent } from "@/lib/format";
@@ -36,7 +37,7 @@ export default function BudgetSimulator({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/budget-navigator/simulate", {
+      const res = await apiFetch("/api/budget-navigator/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, campaignId, deltaPct: deltaPct / 100 }),

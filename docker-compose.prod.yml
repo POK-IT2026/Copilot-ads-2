@@ -1,0 +1,15 @@
+# PlayOut Kids · Media Suite · Override PROD
+# Se usa con: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# El base (docker-compose.yml) es upstream de Raúl · no lo modificamos.
+# Este override reemplaza el puerto host del base (3000→3006) para separarlo del sandbox.
+
+services:
+  app:
+    container_name: campaign-copilot-prod
+    # !override es Docker Compose 2.24+ · REEMPLAZA el array de ports del base
+    # (que trae "3000:3000") en vez de agregarlo. Distinto de !reset que solo
+    # borra la key sin definir la nueva.
+    ports: !override
+      - "127.0.0.1:3006:3000"
+    # Restart agresivo en prod para máxima disponibilidad
+    restart: unless-stopped

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/lib/format";
+import { apiFetch } from "@/lib/api-fetch";
 
 /**
  * Botón para editar la puja (CPC bid) de una keyword de Google Ads. Al
@@ -58,7 +59,7 @@ export default function EditKeywordBidButton({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/google-ads/actions/keyword-bid", {
+      const res = await apiFetch("/api/google-ads/actions/keyword-bid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId, adGroupId, criterionId, newBidPesos }),

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 
 export default function GoogleSyncButton({
@@ -21,7 +22,7 @@ export default function GoogleSyncButton({
     setMessage(null);
     setError(false);
     try {
-      const res = await fetch("/api/google-ads/sync", {
+      const res = await apiFetch("/api/google-ads/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId, dateFrom, dateTo }),

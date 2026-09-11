@@ -4,7 +4,9 @@ import GoogleSyncButton from "@/components/GoogleSyncButton";
 import KpiCard from "@/components/KpiCard";
 import SortableTable from "@/components/SortableTable";
 import SpendChart from "@/components/SpendChart";
+import SummaryCard from "@/components/SummaryCard";
 import Link from "next/link";
+import { BASE_PATH } from "@/lib/api-fetch";
 import { getGoogleAccounts } from "@/lib/env";
 import { resolveFilters, type SearchParams } from "@/lib/filters";
 import { fmtInt, fmtMoney, fmtPercent } from "@/lib/format";
@@ -63,7 +65,7 @@ export default async function GoogleAdsPage({
         <div className="flex flex-wrap items-center gap-2">
           {!connected && ready && (
             <a
-              href="/api/google-ads/oauth/start"
+              href={`${BASE_PATH}/api/google-ads/oauth/start`}
               className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-white hover:opacity-90"
             >
               Conectar Google Ads
@@ -98,25 +100,67 @@ export default async function GoogleAdsPage({
       {connected && (
         <>
           <div className="grid gap-3 md:grid-cols-4">
-            {[
-              ["Campanas", `/google-ads/campaigns?${qs}`, campaigns.length],
-              ["Palabras clave", `/google-ads/keywords?${qs}`, keywords.length],
-              ["Top performance", `/google-ads/top-performers?${qs}`, campaigns.length],
-              [
-                "Recomendaciones",
-                `/google-ads/recommendations?${qs}`,
-                recommendations.filter((rec) => rec.status === "pending").length,
-              ],
-            ].map(([label, href, count]) => (
-              <Link
-                key={String(label)}
-                href={String(href)}
-                className="rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:bg-page"
-              >
-                <p className="text-sm font-medium text-ink">{label}</p>
-                <p className="mt-1 text-xs text-muted">{count} registros</p>
-              </Link>
-            ))}
+            <SummaryCard
+              label="Campañas"
+              href={`/google-ads/campaigns?${qs}`}
+              count={campaigns.length}
+              hint={campaigns.length === 1 ? "1 activa · ver detalle →" : `${campaigns.length} activas · ver detalle →`}
+              icon={
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 9h6v6H9z" />
+                </svg>
+              }
+            />
+            <SummaryCard
+              label="Palabras clave"
+              href={`/google-ads/keywords?${qs}`}
+              count={keywords.length}
+              hint={`${keywords.length} términos · ver detalle →`}
+              icon={
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+              }
+            />
+            <SummaryCard
+              label="Top performance"
+              href={`/google-ads/top-performers?${qs}`}
+              count={campaigns.length}
+              hint="Ver ranking →"
+              icon={
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                  <path d="M4 22h16" />
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                </svg>
+              }
+            />
+            <SummaryCard
+              label="Recomendaciones"
+              href={`/google-ads/recommendations?${qs}`}
+              count={recommendations.filter((rec) => rec.status === "pending").length}
+              hint={
+                recommendations.filter((rec) => rec.status === "pending").length > 0
+                  ? "Pendientes · revisar →"
+                  : "Sin pendientes · ver todas →"
+              }
+              icon={
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="M4.93 4.93l1.41 1.41" />
+                  <path d="M17.66 17.66l1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="M4.93 19.07l1.41-1.41" />
+                  <path d="M17.66 6.34l1.41-1.41" />
+                  <circle cx="12" cy="12" r="4" />
+                </svg>
+              }
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">

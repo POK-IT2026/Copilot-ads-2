@@ -2,6 +2,7 @@ import ComparePeriodPicker from "@/components/ComparePeriodPicker";
 import GoogleSyncButton from "@/components/GoogleSyncButton";
 import KpiCard from "@/components/KpiCard";
 import SpendChart from "@/components/SpendChart";
+import { BASE_PATH } from "@/lib/api-fetch";
 import { addDays, getComparisonPeriod, getPeriodLengthDays, type ComparePreset } from "@/lib/dateRanges";
 import { getGoogleAccounts, getMetaAccounts } from "@/lib/env";
 import { type SearchParams } from "@/lib/filters";
@@ -91,7 +92,10 @@ export default async function Home({
   const comparePreset = (getParam(sp, "comparePreset") as ComparePreset | undefined) ?? "previous";
   const compareFrom = getParam(sp, "compareFrom");
   const compareTo = getParam(sp, "compareTo");
-  const exportHref = `/api/export/ad-spend?dateFrom=${encodeURIComponent(
+  // BASE_PATH explícito: un <a href> plano NO recibe el basePath de Next, a
+  // diferencia de <Link> y de los assets. Sin esto el navegador pide
+  // erp.playoutkids.com/api/... , nginx no matchea /media y cae al ERP Laravel.
+  const exportHref = `${BASE_PATH}/api/export/ad-spend?dateFrom=${encodeURIComponent(
     dateFrom
   )}&dateTo=${encodeURIComponent(dateTo)}`;
   const previousPeriod = getComparisonPeriod(comparePreset, dateFrom, dateTo, {
@@ -430,7 +434,7 @@ export default async function Home({
           <div className="flex flex-wrap gap-2">
             {!googleConnected && googleReady && (
               <a
-                href="/api/google-ads/oauth/start"
+                href={`${BASE_PATH}/api/google-ads/oauth/start`}
                 className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-white hover:opacity-90"
               >
                 Conectar Google Ads

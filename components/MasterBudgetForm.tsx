@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -19,7 +20,7 @@ export default function MasterBudgetForm({ currentMonthlyBudget }: { currentMont
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/budget-navigator/master-budget", {
+      const res = await apiFetch("/api/budget-navigator/master-budget", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monthlyBudget }),

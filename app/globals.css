@@ -1,38 +1,51 @@
 @import "tailwindcss";
 
+/**
+ * PlayOut Kids · Media Suite · 100% Brandbook Fibrand
+ * 2026-07-27 · Solo colores oficiales Fibrand · sin custom.
+ * Paleta: Royal #354EEC · Yellow #FFCE1F · Red #FF3131 · Sora font.
+ * Estados mapeados a los 3 brand: positive→royal · warning→yellow · critical→red.
+ * Ver [[project-media-suite-ownership-emmanuel]].
+ */
 @theme {
-  /* Superficies y tinta: pergamino cálido, no el "cream" genérico de plantilla */
-  --color-page: #f7f5f0;
-  --color-surface: #fcfaf6;
-  --color-ink: #171410;
-  --color-ink-2: #55504a;
-  --color-muted: #8c887f;
-  --color-line: #e3ddd2;
+  /* Superficies · neutrales fríos ecosistema ERP/CRM */
+  --color-page: #f7f8fc;
+  --color-surface: #ffffff;
+  --color-ink: #0f1424;
+  --color-ink-2: #2c2f45;
+  --color-muted: #8b90a5;
+  --color-line: #e4e7ef;
 
-  /* Sidebar oscuro (misma temperatura cálida que el resto de la paleta) */
-  --color-sidebar: #1a1613;
-  --color-sidebar-ink: #c3beb2;
+  /* Sidebar · royal deep Fibrand signature Media Suite */
+  --color-sidebar: #1e2e9e;
+  --color-sidebar-ink: #ffffff;
 
-  /* Acento — cobre/óxido: la señal de "gasto/atención" del panel, en vez
-     del azul de SaaS por defecto. Verificado AA (>=4.5:1) sobre blanco,
-     page y surface. */
-  --color-accent: #a8481a;
+  /* Acento primario · Royal Fibrand oficial */
+  --color-accent: #354eec;
+  --color-accent-deep: #1e2e9e;
 
-  /* Estados (reservados para prioridades y status, con ícono + etiqueta) */
-  --color-good: #0ca30c;
-  --color-good-ink: #006300;
-  --color-warning: #fab219;
-  --color-serious: #ec835a;
-  --color-critical: #d03b3b;
+  /* Brand yellow Fibrand · accents · CTAs · counts */
+  --color-brand: #ffce1f;
+  --color-brand-ink: #6b4e00;
+
+  /* Estados mapeados a los 3 brand oficiales · sin verdes/naranjas custom */
+  --color-good: #354eec;
+  --color-good-ink: #1e2e9e;
+  --color-warning: #ffce1f;
+  --color-serious: #ffce1f;
+  --color-critical: #ff3131;
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Sora', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.005em;
 }
 
-/* Tipografía de titulares con carácter propio; el cuerpo y las tablas se
-   quedan en system-ui por velocidad y máxima legibilidad de datos. */
-h1 {
-  font-family: var(--font-display), system-ui, sans-serif;
-  letter-spacing: -0.01em;
+/* Titulares Sora peso alto + tracking negativo (patrón ERP/CRM) */
+/* Sora max weight = 800 · h1 usa 800 con tracking más agresivo */
+h1, h2, h3 {
+  font-family: 'Sora', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  font-weight: 800;
 }
+h1 { letter-spacing: -0.03em; }

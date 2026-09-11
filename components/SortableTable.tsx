@@ -116,37 +116,55 @@ export default function SortableTable({
     <div className="overflow-x-auto rounded-lg border border-line bg-surface">
       <table className="w-full min-w-max text-sm">
         <thead>
-          <tr className="border-b border-line text-left">
+          <tr className="border-b-2 border-line bg-accent/[0.03] text-left">
             {columns.map((col) => {
               const numeric = NUMERIC.has(col.format ?? "text");
               const active = sortKey === col.key;
               return (
-                <th key={col.key} className={`px-3 py-2.5 font-medium text-muted ${numeric ? "text-right" : ""}`}>
+                <th
+                  key={col.key}
+                  className={`px-3.5 py-2.5 text-[10.5px] font-extrabold uppercase tracking-wider text-muted ${
+                    numeric ? "text-right" : ""
+                  }`}
+                >
                   <button
                     onClick={() => toggleSort(col.key, col.format ?? "text")}
-                    className={`inline-flex items-center gap-1 hover:text-ink ${active ? "text-ink" : ""}`}
+                    className={`inline-flex items-center gap-1 transition-colors hover:text-accent-deep ${
+                      active ? "text-accent-deep" : ""
+                    }`}
                   >
                     {col.label}
-                    <span className="text-[10px]">{active ? (desc ? "▼" : "▲") : ""}</span>
+                    <span className="text-[10px] leading-none">{active ? (desc ? "▼" : "▲") : ""}</span>
                   </button>
                 </th>
               );
             })}
-            {adPreviewKey && <th className="px-3 py-2.5 text-right font-medium text-muted">Vista</th>}
+            {adPreviewKey && (
+              <th className="px-3.5 py-2.5 text-right text-[10.5px] font-extrabold uppercase tracking-wider text-muted">
+                Vista
+              </th>
+            )}
             {actionColumn && (
-              <th className="px-3 py-2.5 text-right font-medium text-muted">{actionColumn.label}</th>
+              <th className="px-3.5 py-2.5 text-right text-[10.5px] font-extrabold uppercase tracking-wider text-muted">
+                {actionColumn.label}
+              </th>
             )}
           </tr>
         </thead>
         <tbody>
           {sorted.map((row, i) => (
-            <tr key={String(row[adPreviewKey ?? "id"] ?? i) + i} className="border-b border-line/60 last:border-0 hover:bg-page/70">
+            <tr
+              key={String(row[adPreviewKey ?? "id"] ?? i) + i}
+              className="border-b border-line/60 transition-colors last:border-0 hover:bg-accent/5"
+            >
               {columns.map((col) => {
                 const numeric = NUMERIC.has(col.format ?? "text");
                 return (
                   <td
                     key={col.key}
-                    className={`px-3 py-2 ${numeric ? "text-right text-ink [font-variant-numeric:tabular-nums]" : "text-ink-2"} ${col.key === "name" ? "max-w-72 truncate font-medium text-ink" : ""}`}
+                    className={`px-3.5 py-3 ${
+                      numeric ? "text-right font-semibold text-ink [font-variant-numeric:tabular-nums]" : "text-ink-2"
+                    } ${col.key === "name" ? "max-w-72 truncate font-semibold text-ink" : ""}`}
                     title={col.key === "name" ? String(row[col.key] ?? "") : undefined}
                   >
                     {renderCell(row[col.key], col.format ?? "text")}
@@ -154,12 +172,12 @@ export default function SortableTable({
                 );
               })}
               {adPreviewKey && (
-                <td className="px-3 py-2 text-right">
+                <td className="px-3.5 py-3 text-right">
                   <AdPreviewButton adId={String(row[adPreviewKey] ?? "")} adName={String(row.name ?? "")} />
                 </td>
               )}
               {actionColumn && (
-                <td className="px-3 py-2 text-right">
+                <td className="px-3.5 py-3 text-right">
                   {actionColumn.cells[String(row.id)] ?? null}
                 </td>
               )}

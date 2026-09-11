@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { fmtCompact, fmtDecimal, fmtMoney, fmtMoneyCompact } from "@/lib/format";
 
 export interface ChartPoint {
@@ -11,8 +11,22 @@ export interface ChartPoint {
 }
 
 const W = 720;
-const H = 230;
-const PAD = { left: 58, right: 14, top: 14, bottom: 30 };
+const H = 180;
+const PAD = { left: 58, right: 14, top: 12, bottom: 26 };
+
+// Paleta Fibrand 100% · reemplaza el naranja anterior por royal deep + gradient
+const CLR = {
+  primary: "#1E2E9E",          // royal deep · línea principal
+  primaryFill: "#354EEC",       // royal accent · para punto y gradient stop
+  previous: "#B4B8CB",          // muted-2 · línea comparativa (gris frío)
+  grid: "#E4E7EF",              // line token
+  axisText: "#6B7085",          // muted
+  crosshair: "#B4B8CB",         // muted-2
+  tooltipBg: "#0F1424",         // ink
+  tooltipMuted: "#B4B8CB",      // texto secundario tooltip
+  tooltipAccent: "#FFCE1F",     // brand yellow para "Actual" acentuado
+  pointStroke: "#FFFFFF",       // borde blanco del punto hover
+};
 
 function niceCeil(v: number): number {
   if (v <= 0) return 1;
@@ -24,8 +38,8 @@ function niceCeil(v: number): number {
 }
 
 /**
- * Gráfica de línea de gasto diario (una sola serie — el título la nombra,
- * sin leyenda). Incluye crosshair + tooltip al pasar el mouse.
+ * Gráfica de línea de gasto diario · Fibrand brandbook.
+ * Animación line-drawing al montar + gradient royal + hover crosshair.
  */
 export default function SpendChart({
   data,
@@ -41,9 +55,16 @@ export default function SpendChart({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
   const hasPrevious = data.some((d) => d.previousSpend !== undefined);
   const fmtTick = valueFormat === "count" ? fmtCompact : fmtMoneyCompact;
   const fmtValue = valueFormat === "count" ? fmtDecimal : fmtMoney;
+
+  // Trigger line-drawing animation on mount
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(t);
+  }, [data]);
 
   if (data.length === 0) {
     return (
@@ -83,22 +104,24 @@ export default function SpendChart({
   }
 
   const h = hover !== null ? data[hover] : null;
-  // El tooltip se ancla al punto y se voltea cerca del borde derecho
   const tipW = 174;
   const tipX = h ? Math.min(x(hover!) + 10, W - PAD.right - tipW) : 0;
 
+  // Longitud aproximada del path para animación stroke-dashoffset
+  const pathLength = data.length * (innerW / Math.max(1, data.length - 1)) * 1.5;
+
   return (
-    <div className="rounded-lg border border-line bg-surface p-4">
+    <div className="rounded-lg border border-line bg-surface p-4 transition-shadow hover:shadow-lg hover:shadow-accent/5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-ink">{title}</p>
+        <p className="text-sm font-semibold text-ink">{title}</p>
         <div className="flex items-center gap-3 text-xs text-muted">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded bg-accent" />
+            <span className="h-1 w-4 rounded-full" style={{ background: CLR.primary }} />
             Actual
           </span>
           {hasPrevious && (
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-0.5 w-4 rounded bg-[#5b6b8c]" />
+              <span className="h-0.5 w-4 rounded" style={{ background: CLR.previous, borderTop: `1px dashed ${CLR.previous}` }} />
               {previousLabel}
             </span>
           )}
@@ -113,11 +136,33 @@ export default function SpendChart({
         role="img"
         aria-label={title}
       >
+        {/* Gradient royal para área bajo la línea */}
+        <defs>
+          <linearGradient id="royalGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CLR.primaryFill} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={CLR.primaryFill} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+
         {/* rejilla y eje Y */}
         {yTicks.map((t) => (
           <g key={t}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="#e3ddd2" strokeWidth={1} />
-            <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end" fontSize={11} fill="#8c887f" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <line
+              x1={PAD.left}
+              x2={W - PAD.right}
+              y1={y(t)}
+              y2={y(t)}
+              stroke={CLR.grid}
+              strokeWidth={1}
+            />
+            <text
+              x={PAD.left - 8}
+              y={y(t) + 4}
+              textAnchor="end"
+              fontSize={11}
+              fill={CLR.axisText}
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
               {fmtTick(t)}
             </text>
           </g>
@@ -125,39 +170,99 @@ export default function SpendChart({
         {/* etiquetas eje X */}
         {data.map((d, i) =>
           i % xLabelEvery === 0 || i === data.length - 1 ? (
-            <text key={d.date} x={x(i)} y={H - 8} textAnchor="middle" fontSize={11} fill="#8c887f">
+            <text key={d.date} x={x(i)} y={H - 8} textAnchor="middle" fontSize={11} fill={CLR.axisText}>
               {d.date.slice(5)}
             </text>
           ) : null
         )}
-        {/* serie */}
-        <path d={areaPath} fill="#a8481a" opacity={0.09} />
+
+        {/* área con gradient · fade-in animación */}
+        <path
+          d={areaPath}
+          fill="url(#royalGrad)"
+          style={{
+            opacity: mounted ? 1 : 0,
+            transition: "opacity 0.8s ease-out",
+          }}
+        />
+
+        {/* línea previa (comparativo) · dashed */}
         {hasPrevious && (
           <path
             d={previousLinePath}
             fill="none"
-            stroke="#5b6b8c"
+            stroke={CLR.previous}
             strokeWidth={2}
             strokeDasharray="5 5"
             strokeLinejoin="round"
+            style={{
+              opacity: mounted ? 0.7 : 0,
+              transition: "opacity 0.6s ease-out 0.4s",
+            }}
           />
         )}
-        <path d={linePath} fill="none" stroke="#a8481a" strokeWidth={2} strokeLinejoin="round" />
+
+        {/* línea principal · line drawing animation */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke={CLR.primary}
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          style={{
+            strokeDasharray: pathLength,
+            strokeDashoffset: mounted ? 0 : pathLength,
+            transition: "stroke-dashoffset 1.2s cubic-bezier(0.65, 0, 0.35, 1)",
+          }}
+        />
+
         {/* crosshair + tooltip */}
         {h && (
           <g>
-            <line x1={x(hover!)} x2={x(hover!)} y1={PAD.top} y2={H - PAD.bottom} stroke="#c3beb2" strokeWidth={1} />
-            <circle cx={x(hover!)} cy={y(h.spend)} r={4} fill="#a8481a" stroke="#fcfaf6" strokeWidth={2} />
+            <line
+              x1={x(hover!)}
+              x2={x(hover!)}
+              y1={PAD.top}
+              y2={H - PAD.bottom}
+              stroke={CLR.crosshair}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx={x(hover!)}
+              cy={y(h.spend)}
+              r={5}
+              fill={CLR.primaryFill}
+              stroke={CLR.pointStroke}
+              strokeWidth={2.5}
+              style={{
+                filter: "drop-shadow(0 2px 4px rgba(31,53,200,0.30))",
+              }}
+            />
             <g transform={`translate(${tipX}, ${PAD.top + 4})`}>
-              <rect width={tipW} height={hasPrevious ? 64 : 44} rx={6} fill="#1a1613" opacity={0.94} />
-              <text x={10} y={18} fontSize={11} fill="#c3beb2">
+              <rect width={tipW} height={hasPrevious ? 64 : 44} rx={8} fill={CLR.tooltipBg} opacity={0.96} />
+              <text x={12} y={20} fontSize={11} fill={CLR.tooltipMuted}>
                 {h.date}
               </text>
-              <text x={10} y={34} fontSize={12} fontWeight={600} fill="#ffffff" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <text
+                x={12}
+                y={36}
+                fontSize={12.5}
+                fontWeight={700}
+                fill={CLR.tooltipAccent}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
                 Actual: {fmtValue(h.spend)}
               </text>
               {hasPrevious && (
-                <text x={10} y={52} fontSize={12} fill="#b9c4dc" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <text
+                  x={12}
+                  y={54}
+                  fontSize={11.5}
+                  fill={CLR.tooltipMuted}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
                   Ant: {fmtValue(h.previousSpend ?? 0)}
                   {h.previousDate ? ` (${h.previousDate.slice(5)})` : ""}
                 </text>

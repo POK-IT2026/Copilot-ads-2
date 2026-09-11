@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 
 /**
@@ -27,7 +28,7 @@ export default function AiAnalysisPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/ai-analysis", {
+      const res = await apiFetch("/api/ai-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, accountId, dateFrom, dateTo }),

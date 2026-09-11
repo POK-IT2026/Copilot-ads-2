@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LEVEL_LABELS, PriorityBadge } from "./Badges";
@@ -68,7 +69,7 @@ export default function RecommendationsBoard({
     setBusy(id);
     setError(null);
     try {
-      const res = await fetch(`/api/recommendations/${id}`, {
+      const res = await apiFetch(`/api/recommendations/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform, status, note: noteText }),

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 
 /**
@@ -24,7 +25,7 @@ export default function AdPreviewButton({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ad-preview?adId=${encodeURIComponent(adId)}`);
+      const res = await apiFetch(`/api/ad-preview?adId=${encodeURIComponent(adId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
       setHtml(data.html ?? "");

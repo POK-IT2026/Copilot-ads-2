@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 
 type StepStatus = "ok" | "error" | "pending";
@@ -52,7 +53,7 @@ export default function GoogleDiagnosticsPanel({ accountId }: { accountId: strin
     try {
       const params = new URLSearchParams();
       if (accountId) params.set("accountId", accountId);
-      const res = await fetch(`/api/google-ads/diagnostics?${params.toString()}`, {
+      const res = await apiFetch(`/api/google-ads/diagnostics?${params.toString()}`, {
         cache: "no-store",
       });
       const data = (await res.json()) as DiagnosticResponse;

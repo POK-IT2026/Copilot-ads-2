@@ -91,6 +91,9 @@ export default async function Home({
   const comparePreset = (getParam(sp, "comparePreset") as ComparePreset | undefined) ?? "previous";
   const compareFrom = getParam(sp, "compareFrom");
   const compareTo = getParam(sp, "compareTo");
+  const exportHref = `/api/export/ad-spend?dateFrom=${encodeURIComponent(
+    dateFrom
+  )}&dateTo=${encodeURIComponent(dateTo)}`;
   const previousPeriod = getComparisonPeriod(comparePreset, dateFrom, dateTo, {
     dateFrom: compareFrom,
     dateTo: compareTo,
@@ -285,6 +288,12 @@ export default async function Home({
         <div className="text-xs text-muted">
           Meta: {metaAccount || "sin cuenta"} | Google: {googleAccount || "sin cuenta"}
         </div>
+        <a
+          href={exportHref}
+          className="inline-flex h-9 items-center rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink-2 hover:bg-page hover:text-ink"
+        >
+          Descargar gasto CSV
+        </a>
       </div>
 
       <ComparePeriodPicker />

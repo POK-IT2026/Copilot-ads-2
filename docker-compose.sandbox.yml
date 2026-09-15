@@ -11,5 +11,13 @@ services:
     # borra la key sin definir la nueva.
     ports: !override
       - "127.0.0.1:3005:3000"
-    # Restart menos agresivo en sandbox para no ocultar bugs
-    restart: on-failure:3
+    # 15-sep-2026 · era `on-failure:3`, pensado para que un bug de la aplicación
+    # no quedara escondido detrás de reinicios automáticos. El argumento sigue
+    # siendo válido para caídas del proceso, pero NO contemplaba el reinicio de
+    # la máquina: Docker solo levanta al arrancar los contenedores marcados
+    # `always` o `unless-stopped`. Con `on-failure`, un reboot del VPS dejaba
+    # sandbox caído hasta que alguien lo notara.
+    #
+    # `unless-stopped` respeta la parada manual: si lo bajas con `docker stop`
+    # o `compose down`, no vuelve solo. Solo cubre el arranque del servidor.
+    restart: unless-stopped

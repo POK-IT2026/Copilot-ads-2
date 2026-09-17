@@ -14,7 +14,9 @@ export type BudgetRuleId =
   | "bn_sustained_cpa"
   | "bn_no_conversions"
   | "bn_below_target"
-  | "bn_above_target";
+  | "bn_above_target"
+  | "bn_forecast_overspend"
+  | "bn_forecast_underspend";
 
 export interface BudgetFinding {
   rule: BudgetRuleId;

@@ -31,6 +31,7 @@ const BUDGET_DOWN_RULES = new Set([
   "bn_sustained_cpa",
   "bn_above_target",
   "bn_no_conversions",
+  "bn_forecast_overspend",
 ]);
 const BUDGET_UP_RULES = new Set([
   "top_performer",
@@ -39,6 +40,7 @@ const BUDGET_UP_RULES = new Set([
   "bn_sustained_roas",
   "bn_pace_ahead",
   "bn_below_target",
+  "bn_forecast_underspend",
 ]);
 
 /** Los anuncios (Meta) y ad groups (Google) no tienen presupuesto propio. */

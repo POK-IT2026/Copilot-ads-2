@@ -20,8 +20,13 @@ import { getGoogleCampaignLive } from "../google/actions";
 import { getMetaAccountCurrency, getMetaEntityLive } from "../meta/actions";
 import { evaluateBudgetHistory, LOOKBACK_DAYS, type BudgetFinding, type DailyMetricRow } from "./rules";
 import { allocateBudget, type CampaignAllocationInput } from "./allocate";
+import { projectMonthEnd, type ForecastResult } from "./forecast";
+import { getGoals } from "./goals";
+import { portfolioIdByCampaign } from "./portfolios";
 
-const BASELINE_DAYS = 30;
+// 31 para cubrir el MTD completo en meses de 31 días (el forecast filtra por
+// fecha >= 1º del mes, así que la ventana debe alcanzar siempre esa fecha).
+const BASELINE_DAYS = 31;
 const MAX_CAMPAIGNS_PER_PLATFORM = 25;
 const STALE_MS = 60 * 60 * 1000; // 1 hora
 
@@ -177,6 +182,44 @@ function categoryBaseline(tracks: CampaignTrack[]) {
   return { salesRoas, leadsCpa, trafficCpc };
 }
 
+// ---------- Forecast a nivel cuenta (gasto total, sin desglose por categoría) ----------
+
+function fetchAccountDailyTotals(
+  metaAccountId: string | undefined,
+  googleAccountId: string | undefined,
+  dateFrom: string,
+  dateTo: string
+): DailyMetricRow[] {
+  const db = getDb();
+  const totals = new Map<string, number>();
+
+  if (metaAccountId) {
+    const rows = db
+      .prepare(
+        `SELECT date, SUM(spend) s FROM meta_ads_campaign_daily
+         WHERE account_id = ? AND date BETWEEN ? AND ? GROUP BY date`
+      )
+      .all(metaAccountId, dateFrom, dateTo) as Array<{ date: string; s: number }>;
+    for (const r of rows) totals.set(r.date, (totals.get(r.date) ?? 0) + (r.s ?? 0));
+  }
+  if (googleAccountId) {
+    const rows = db
+      .prepare(
+        `SELECT date, SUM(cost) s FROM google_ads_campaign_daily
+         WHERE account_id = ? AND date BETWEEN ? AND ? GROUP BY date`
+      )
+      .all(googleAccountId, dateFrom, dateTo) as Array<{ date: string; s: number }>;
+    for (const r of rows) totals.set(r.date, (totals.get(r.date) ?? 0) + (r.s ?? 0));
+  }
+
+  // conversions/value en 0: mezclar leads+ventas+tráfico de dos plataformas en
+  // un solo número no tiene sentido semántico -- el detalle por KPI ya vive
+  // en los findings por campaña, donde la categoría sí está bien definida.
+  return Array.from(totals.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, spend]) => ({ date, spend, conversions: 0, value: 0 }));
+}
+
 // ---------- Recomendaciones (reusa las tablas existentes) ----------
 
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -219,7 +262,20 @@ export interface RecalculateResult {
     currentDailyBudget: number | null;
     targetDailyBudget: number;
     findingCount: number;
+    projectedSpendEom: number;
+    projectedResultEom: number;
+    deviationPct: number | null;
+    spend: number;
+    conversions: number;
+    value: number;
+    clicks: number;
+    portfolioId: number | null;
   }>;
+  /** Promedio de gasto diario de los últimos FORECAST_WINDOW_DAYS días, cuenta completa. */
+  totalDailyRunRate: number;
+  /** Proyección de gasto total (todas las cuentas) a fin de mes, al ritmo actual. */
+  projectedSpendEom: number;
+  projectedDaysRemaining: number;
 }
 
 export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
@@ -246,10 +302,19 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
   const allTracks = [...metaTracks, ...googleTracks];
   const baseline = categoryBaseline(allTracks);
 
+  // Si el usuario definió una meta de KPI por categoría, se usa en vez del
+  // promedio de cuenta -- tanto para las reglas de racha (evaluateBudgetHistory)
+  // como para el reparto (allocateBudget), así ambos quedan consistentes.
+  const goals = getGoals();
+  const effectiveSalesRoas = goals.sales?.roasTarget ?? baseline.salesRoas;
+  const effectiveLeadsCpa = goals.leads?.cpaTarget ?? baseline.leadsCpa;
+  const effectiveTrafficCpc = goals.traffic?.cpaTarget ?? baseline.trafficCpc;
+
   const now = new Date();
   const nowHour = now.getHours();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const totalDailyBudget = monthlyBudget > 0 ? monthlyBudget / daysInMonth : 0;
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
   // Solo se procesan campañas activas, acotado por gasto reciente para no
   // disparar demasiadas llamadas en vivo a la API en cuentas grandes.
@@ -265,6 +330,11 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
   const allocationInputs: CampaignAllocationInput[] = [];
   const ruleFindingsByCampaign = new Map<string, BudgetFinding[]>();
   const liveBudgetByCampaign = new Map<string, number | null>();
+  const forecastByCampaign = new Map<string, ForecastResult>();
+  const totalsByCampaign = new Map<
+    string,
+    { spend: number; conversions: number; value: number; clicks: number }
+  >();
 
   for (const track of activeSorted) {
     let currentDailyBudget: number | null = null;
@@ -282,17 +352,26 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
     liveBudgetByCampaign.set(track.campaignId, currentDailyBudget);
 
     const days = track.daily.slice(-LOOKBACK_DAYS);
-    const avgCpa = track.category === "leads" ? baseline.leadsCpa : baseline.trafficCpc;
+    const avgCpa = track.category === "leads" ? effectiveLeadsCpa : effectiveTrafficCpc;
     const findings = evaluateBudgetHistory({
       name: track.name,
       category: track.category,
       days,
-      avgRoas: baseline.salesRoas,
+      avgRoas: effectiveSalesRoas,
       avgCpa,
       currentDailyBudget,
       nowHour,
     });
-    ruleFindingsByCampaign.set(track.campaignId, findings);
+
+    const forecast = projectMonthEnd({
+      name: track.name,
+      category: track.category,
+      daily: track.daily.filter((d) => d.date >= monthStart),
+      referenceMonthlyBudget: currentDailyBudget !== null ? currentDailyBudget * daysInMonth : null,
+      now,
+    });
+    forecastByCampaign.set(track.campaignId, forecast);
+    ruleFindingsByCampaign.set(track.campaignId, [...findings, ...forecast.findings]);
 
     const totals = track.daily.reduce(
       (acc, d) => ({
@@ -303,6 +382,7 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
       }),
       { spend: 0, conversions: 0, value: 0, clicks: 0 }
     );
+    totalsByCampaign.set(track.campaignId, totals);
     allocationInputs.push({
       campaignId: track.campaignId,
       name: track.name,
@@ -315,12 +395,20 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
     });
   }
 
-  const allocations = totalDailyBudget > 0 ? allocateBudget(allocationInputs, totalDailyBudget) : [];
+  const allocations =
+    totalDailyBudget > 0
+      ? allocateBudget(allocationInputs, totalDailyBudget, {
+          roas: goals.sales?.roasTarget ?? null,
+          cpl: goals.leads?.cpaTarget ?? null,
+          cpc: goals.traffic?.cpaTarget ?? null,
+        })
+      : [];
   const allocationByCampaign = new Map(allocations.map((a) => [a.campaignId, a]));
 
   const metaItems: Array<{ campaignId: string; name: string; findings: BudgetFinding[] }> = [];
   const googleItems: Array<{ campaignId: string; name: string; findings: BudgetFinding[] }> = [];
   const campaignSnapshots: RecalculateResult["campaignSnapshots"] = [];
+  const portfolioByCampaign = portfolioIdByCampaign();
 
   for (const track of activeSorted) {
     const ruleFindings = ruleFindingsByCampaign.get(track.campaignId) ?? [];
@@ -335,6 +423,8 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
         findings,
       });
     }
+    const forecast = forecastByCampaign.get(track.campaignId);
+    const totals = totalsByCampaign.get(track.campaignId);
     campaignSnapshots.push({
       platform: track.platform,
       campaignId: track.campaignId,
@@ -343,13 +433,27 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
       currentDailyBudget: liveBudgetByCampaign.get(track.campaignId) ?? null,
       targetDailyBudget: allocation?.targetDailyBudget ?? 0,
       findingCount: findings.length,
+      projectedSpendEom: forecast?.projectedSpend ?? 0,
+      projectedResultEom: forecast
+        ? track.category === "sales"
+          ? forecast.projectedValue
+          : forecast.projectedConversions
+        : 0,
+      deviationPct: forecast?.deviationPct ?? null,
+      // Totales del periodo de baseline -- permiten reconstruir
+      // CampaignAllocationInput[] sin releer presupuestos en vivo (ver
+      // budgetCurve.ts / app/api/budget-navigator/curve/route.ts).
+      spend: totals?.spend ?? 0,
+      conversions: totals?.conversions ?? 0,
+      value: totals?.value ?? 0,
+      clicks: totals?.clicks ?? 0,
+      portfolioId: portfolioByCampaign.get(`${track.platform}:${track.campaignId}`) ?? null,
     });
   }
 
   if (metaAccountId) persistFindings("meta", metaAccountId, metaItems);
   if (googleAccountId) persistFindings("google", googleAccountId, googleItems);
 
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const spendRow = metaAccountId
     ? (db
         .prepare(
@@ -366,15 +470,41 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
     : { s: 0 };
   const totalSpendMtd = (spendRow.s ?? 0) + (costRow.s ?? 0);
 
+  // Forecast a nivel cuenta: gasto agregado de todas las campañas/plataformas
+  // vs el presupuesto maestro. Solo se usa para las 3 columnas de cuenta; sus
+  // `findings` no se persisten (el detalle por KPI ya vive en los findings
+  // por campaña, donde la categoría sí está bien definida).
+  const accountDaily = fetchAccountDailyTotals(metaAccountId, googleAccountId, monthStart, isoDate(now));
+  const accountForecast = projectMonthEnd({
+    name: "la cuenta",
+    category: "sales",
+    daily: accountDaily,
+    referenceMonthlyBudget: monthlyBudget > 0 ? monthlyBudget : null,
+    now,
+  });
+
   const computedAt = now.toISOString();
   db.prepare(
-    `INSERT INTO budget_navigator_state (id, monthly_budget, currency, computed_at, total_daily_budget, total_spend_mtd, campaign_snapshots)
-     VALUES (1, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO budget_navigator_state (id, monthly_budget, currency, computed_at, total_daily_budget, total_spend_mtd, campaign_snapshots, total_daily_run_rate, projected_spend_eom, projected_days_remaining)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET
        currency = excluded.currency, computed_at = excluded.computed_at,
        total_daily_budget = excluded.total_daily_budget, total_spend_mtd = excluded.total_spend_mtd,
-       campaign_snapshots = excluded.campaign_snapshots`
-  ).run(monthlyBudget, currency, computedAt, totalDailyBudget, totalSpendMtd, JSON.stringify(campaignSnapshots));
+       campaign_snapshots = excluded.campaign_snapshots,
+       total_daily_run_rate = excluded.total_daily_run_rate,
+       projected_spend_eom = excluded.projected_spend_eom,
+       projected_days_remaining = excluded.projected_days_remaining`
+  ).run(
+    monthlyBudget,
+    currency,
+    computedAt,
+    totalDailyBudget,
+    totalSpendMtd,
+    JSON.stringify(campaignSnapshots),
+    accountForecast.dailyRunRate,
+    accountForecast.projectedSpend,
+    accountForecast.daysRemaining
+  );
 
   return {
     computedAt,
@@ -383,6 +513,9 @@ export async function recalculateBudgetNavigator(): Promise<RecalculateResult> {
     totalDailyBudget,
     totalSpendMtd,
     campaignSnapshots,
+    totalDailyRunRate: accountForecast.dailyRunRate,
+    projectedSpendEom: accountForecast.projectedSpend,
+    projectedDaysRemaining: accountForecast.daysRemaining,
   };
 }
 
@@ -400,6 +533,9 @@ export function getBudgetNavigatorState(): BudgetNavigatorState | null {
         total_daily_budget: number;
         total_spend_mtd: number;
         campaign_snapshots: string;
+        total_daily_run_rate: number;
+        projected_spend_eom: number;
+        projected_days_remaining: number;
       }
     | undefined;
   if (!row) return null;
@@ -411,6 +547,9 @@ export function getBudgetNavigatorState(): BudgetNavigatorState | null {
     totalDailyBudget: row.total_daily_budget,
     totalSpendMtd: row.total_spend_mtd,
     campaignSnapshots: JSON.parse(row.campaign_snapshots || "[]"),
+    totalDailyRunRate: row.total_daily_run_rate ?? 0,
+    projectedSpendEom: row.projected_spend_eom ?? 0,
+    projectedDaysRemaining: row.projected_days_remaining ?? 0,
     isStale: !row.computed_at || Date.now() - computedAtMs > STALE_MS,
   };
 }

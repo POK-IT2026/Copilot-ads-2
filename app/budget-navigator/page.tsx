@@ -1,11 +1,16 @@
 import ApplyActionButton from "@/components/ApplyActionButton";
+import BudgetCurve from "@/components/BudgetCurve";
 import BudgetSimulator from "@/components/BudgetSimulator";
+import CategoryGoalsForm from "@/components/CategoryGoalsForm";
+import EmptyState from "@/components/EmptyState";
 import KpiCard from "@/components/KpiCard";
 import MasterBudgetForm from "@/components/MasterBudgetForm";
 import RecalculateButton from "@/components/RecalculateButton";
 import { PriorityBadge } from "@/components/Badges";
 import { CATEGORY_LABELS } from "@/lib/campaignCategory";
 import { getBudgetNavigatorState, recalculateBudgetNavigator } from "@/lib/budgetNavigator/engine";
+import { FORECAST_DEVIATION_PCT } from "@/lib/budgetNavigator/forecast";
+import { getGoals } from "@/lib/budgetNavigator/goals";
 import { getGoogleAccounts, getMetaAccounts } from "@/lib/env";
 import { fmtMoney } from "@/lib/format";
 import { googleAdsConnected } from "@/lib/google/oauth";
@@ -15,8 +20,18 @@ import { availableActionsFor, type ActionKey, type Platform } from "@/lib/recomm
 
 export const dynamic = "force-dynamic";
 
-const GROWTH_RULES = new Set(["bn_below_target", "bn_sustained_roas", "bn_pace_ahead"]);
-const REDUCE_RULES = new Set(["bn_above_target", "bn_sustained_cpa", "bn_no_conversions"]);
+const GROWTH_RULES = new Set([
+  "bn_below_target",
+  "bn_sustained_roas",
+  "bn_pace_ahead",
+  "bn_forecast_underspend",
+]);
+const REDUCE_RULES = new Set([
+  "bn_above_target",
+  "bn_sustained_cpa",
+  "bn_no_conversions",
+  "bn_forecast_overspend",
+]);
 
 interface BnRow {
   id: number;
@@ -89,6 +104,19 @@ export default async function BudgetNavigatorPage() {
   const reduce = bnRows.filter((r) => REDUCE_RULES.has(r.rule));
   const remaining = state.monthlyBudget - state.totalSpendMtd;
 
+  const accountDeviationPct =
+    state.monthlyBudget > 0 ? (state.projectedSpendEom - state.monthlyBudget) / state.monthlyBudget : null;
+  const accountDeviationTone: "up" | "down" | "flat" =
+    accountDeviationPct === null
+      ? "flat"
+      : accountDeviationPct > FORECAST_DEVIATION_PCT
+        ? "down"
+        : accountDeviationPct < -FORECAST_DEVIATION_PCT
+          ? "flat"
+          : "up";
+
+  const goals = getGoals();
+
   const simCampaigns = state.campaignSnapshots.map((c) => ({
     platform: c.platform,
     campaignId: c.campaignId,
@@ -117,6 +145,15 @@ export default async function BudgetNavigatorPage() {
         <MasterBudgetForm currentMonthlyBudget={state.monthlyBudget} />
       </section>
 
+      <section className="rounded-lg border border-line bg-surface p-4">
+        <h2 className="mb-1 text-sm font-semibold text-ink">Metas de KPI por categoría</h2>
+        <p className="mb-3 text-xs text-muted">
+          Opcional: si defines una meta, el reparto y las alertas de racha se evalúan contra ella
+          en vez del promedio histórico de la cuenta.
+        </p>
+        <CategoryGoalsForm goals={goals} />
+      </section>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Presupuesto mensual" value={fmtMoney(state.monthlyBudget)} />
         <KpiCard label="Presupuesto diario (asignado)" value={fmtMoney(state.totalDailyBudget)} />
@@ -131,6 +168,33 @@ export default async function BudgetNavigatorPage() {
           }
         />
       </div>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Proyección de cierre de mes</h2>
+        {state.monthlyBudget > 0 ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <KpiCard label="Ritmo diario (últimos 7 días)" value={fmtMoney(state.totalDailyRunRate)} />
+            <KpiCard
+              label="Proyección de gasto a fin de mes"
+              value={fmtMoney(state.projectedSpendEom)}
+              sub={`${state.projectedDaysRemaining} días restantes`}
+              delta={
+                accountDeviationPct !== null
+                  ? {
+                      value: `${accountDeviationPct >= 0 ? "+" : ""}${(accountDeviationPct * 100).toLocaleString("es-MX", { maximumFractionDigits: 1 })}% vs. presupuesto`,
+                      tone: accountDeviationTone,
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        ) : (
+          <EmptyState
+            title="Configura un presupuesto mensual para ver la proyección de cierre de mes"
+            hint="La proyección extrapola el ritmo de gasto de los últimos 7 días a lo que resta del mes y lo compara contra tu presupuesto mensual."
+          />
+        )}
+      </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <section>
@@ -154,6 +218,18 @@ export default async function BudgetNavigatorPage() {
         </p>
         <BudgetSimulator campaigns={simCampaigns} />
       </section>
+
+      {state.totalDailyBudget > 0 && (
+        <section className="rounded-lg border border-line bg-surface p-4">
+          <h2 className="mb-1 text-sm font-semibold text-ink">Curva &quot;qué pasaría si&quot;</h2>
+          <p className="mb-3 text-xs text-muted">
+            Retorno esperado del reparto real (mismo motor que las oportunidades de arriba) contra
+            distintos niveles de presupuesto diario total. Asume eficiencia constante por campaña,
+            igual que el Simulador.
+          </p>
+          <BudgetCurve />
+        </section>
+      )}
     </div>
   );
 }

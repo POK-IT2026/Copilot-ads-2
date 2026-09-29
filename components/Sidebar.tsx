@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMobileNav } from "./MobileNav";
 
@@ -23,7 +24,8 @@ const META_ITEMS: NavItem[] = [
 
 const OVERVIEW_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard central", exact: true },
-  { href: "/budget-navigator", label: "Budget Navigator" },
+  { href: "/budget-navigator", label: "Budget Navigator", exact: true },
+  { href: "/budget-navigator/portfolios", label: "Portfolios" },
 ];
 const GOOGLE_ITEMS: NavItem[] = [
   { href: "/google-ads", label: "Dashboard", exact: true },
@@ -34,6 +36,16 @@ const GOOGLE_ITEMS: NavItem[] = [
   { href: "/google-ads/recommendations", label: "Recomendaciones" },
 ];
 
+function isActive(item: NavItem, pathname: string): boolean {
+  return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
+}
+
+/**
+ * Desplegable: por defecto abierta solo la sección que contiene la página
+ * activa (para no amontonar los ~17 links de las 3 secciones a la vez).
+ * `manualOpen` es null mientras el usuario no la toque -- ahí sigue el
+ * criterio automático; en cuanto hace click, queda fija en ese estado.
+ */
 function NavSection({
   title,
   items,
@@ -45,32 +57,56 @@ function NavSection({
   pathname: string;
   qs: string;
 }) {
+  const containsActive = items.some((item) => isActive(item, pathname));
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const open = manualOpen ?? containsActive;
+
   return (
     <div>
-      <p className="px-3 pt-5 pb-2 text-[10px] font-bold uppercase tracking-[1.5px] text-white/45">
-        {title}
-      </p>
-      <ul className="space-y-0.5">
-        {items.map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <li key={item.href}>
-              <Link
-                href={qs ? `${item.href}?${qs}` : item.href}
-                className={`block rounded-md border-l-[3px] px-3 py-2 text-sm transition-all ${
-                  active
-                    ? "border-brand bg-white/10 font-bold text-white"
-                    : "border-transparent text-white/75 hover:border-white/20 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Sync 29-sep-2026: sección desplegable de Raúl + estilo de marca PlayOut Kids */}
+      <button
+        type="button"
+        onClick={() => setManualOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-md px-3 pt-5 pb-2 text-[10px] font-bold uppercase tracking-[1.5px] text-white/45 transition-colors hover:text-white/75"
+      >
+        <span>{title}</span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className={`shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="space-y-0.5">
+          {items.map((item) => {
+            const active = isActive(item, pathname);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={qs ? `${item.href}?${qs}` : item.href}
+                  className={`block rounded-md border-l-[3px] px-3 py-2 text-sm transition-all ${
+                    active
+                      ? "border-brand bg-white/10 font-bold text-white"
+                      : "border-transparent text-white/75 hover:border-white/20 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

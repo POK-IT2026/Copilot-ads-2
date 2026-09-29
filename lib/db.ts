@@ -257,8 +257,37 @@ CREATE TABLE IF NOT EXISTS budget_navigator_state (
   computed_at TEXT,
   total_daily_budget REAL NOT NULL DEFAULT 0,
   total_spend_mtd REAL NOT NULL DEFAULT 0,
-  campaign_snapshots TEXT NOT NULL DEFAULT '[]'
+  campaign_snapshots TEXT NOT NULL DEFAULT '[]',
+  total_daily_run_rate REAL NOT NULL DEFAULT 0,
+  projected_spend_eom REAL NOT NULL DEFAULT 0,
+  projected_days_remaining INTEGER NOT NULL DEFAULT 0
 );
+
+-- Meta de KPI opcional por categoría (leads/sales/traffic/awareness); si una
+-- categoría no tiene fila, el motor usa el promedio de cuenta como hoy.
+CREATE TABLE IF NOT EXISTS budget_navigator_goals (
+  category TEXT PRIMARY KEY CHECK (category IN ('leads','sales','traffic','awareness')),
+  roas_target REAL,
+  cpa_target REAL,
+  kpi_count_target REAL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Portfolios: agrupación/vista manual de campañas (v1, no cambia el reparto).
+CREATE TABLE IF NOT EXISTS budget_navigator_portfolios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- PRIMARY KEY (platform, campaign_id): resuelve IDs no-únicos cross-platform
+-- y fuerza "una campaña, un portfolio a la vez" (más simple para v1).
+CREATE TABLE IF NOT EXISTS budget_navigator_portfolio_campaigns (
+  portfolio_id INTEGER NOT NULL REFERENCES budget_navigator_portfolios(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('meta','google')),
+  campaign_id TEXT NOT NULL,
+  PRIMARY KEY (platform, campaign_id)
+);
+CREATE INDEX IF NOT EXISTS idx_bn_portfolio_campaigns ON budget_navigator_portfolio_campaigns (portfolio_id);
 `;
 
 function createDb(): Database.Database {
@@ -309,6 +338,25 @@ function migrateDb(db: Database.Database) {
     );
     if (!columns.has("applied_action")) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN applied_action TEXT`);
+    }
+  }
+
+  {
+    const forecastColumns = [
+      ["total_daily_run_rate", "REAL NOT NULL DEFAULT 0"],
+      ["projected_spend_eom", "REAL NOT NULL DEFAULT 0"],
+      ["projected_days_remaining", "INTEGER NOT NULL DEFAULT 0"],
+    ] as const;
+    const columns = new Set(
+      db
+        .prepare(`PRAGMA table_info(budget_navigator_state)`)
+        .all()
+        .map((row) => String((row as { name: string }).name))
+    );
+    for (const [name, definition] of forecastColumns) {
+      if (!columns.has(name)) {
+        db.exec(`ALTER TABLE budget_navigator_state ADD COLUMN ${name} ${definition}`);
+      }
     }
   }
 }

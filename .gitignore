@@ -26,3 +26,6 @@ npm-debug.log*
 .claude/settings.local.json
 .claude/skills/
 skills-lock.json
+
+# logs del servidor de desarrollo (no van al repo)
+dev-server.*.log

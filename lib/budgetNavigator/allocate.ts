@@ -75,15 +75,26 @@ function efficiencyScore(
  * `dailyTotal` es el presupuesto diario total (presupuesto mensual /
  * días del mes). Solo participan del reparto campañas con categoría
  * distinta de "awareness" y con presupuesto actual leído en vivo.
+ *
+ * `goalOverrides` (opcional) sobreescribe el promedio de cuenta calculado
+ * internamente para roas/cpl/cpc -- cuando el usuario definió una meta de
+ * KPI por categoría (lib/budgetNavigator/goals.ts), las campañas se puntúan
+ * contra esa meta en vez del promedio histórico.
  */
 export function allocateBudget(
   campaigns: CampaignAllocationInput[],
-  dailyTotal: number
+  dailyTotal: number,
+  goalOverrides?: { roas?: number | null; cpl?: number | null; cpc?: number | null }
 ): AllocationResult[] {
   const eligible = campaigns.filter((c) => c.category !== "awareness" && c.currentDailyBudget !== null);
   if (eligible.length === 0) return [];
 
-  const avg = categoryAverages(eligible);
+  const accountAvg = categoryAverages(eligible);
+  const avg = {
+    roas: goalOverrides?.roas ?? accountAvg.roas,
+    cpl: goalOverrides?.cpl ?? accountAvg.cpl,
+    cpc: goalOverrides?.cpc ?? accountAvg.cpc,
+  };
   const scored = eligible.map((c) => ({ ...c, score: efficiencyScore(c, avg) }));
   const totalScore = scored.reduce((a, c) => a + c.score, 0);
 

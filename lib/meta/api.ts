@@ -5,10 +5,10 @@
  *  - Lee el header X-Business-Use-Case-Usage y, si algún contador supera el
  *    90%, espera antes de la siguiente llamada.
  *  - Reintenta con backoff exponencial los errores de throttling
- *    (códigos 17, 32 y 80000–80004) y los 5xx.
+ *    (códigos 4, 17, 32 y 80000–80004) y los 5xx.
  */
 
-const RETRYABLE_CODES = new Set([17, 32, 80000, 80001, 80002, 80003, 80004]);
+const RETRYABLE_CODES = new Set([4, 17, 32, 80000, 80001, 80002, 80003, 80004]);
 const MAX_RETRIES = 5;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +46,7 @@ async function requestWithRetry(url: string, init?: RequestInit): Promise<unknow
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, { cache: "no-store", ...init });
     const usage = readUsageHeader(res);
+    const retryAfter = Number(res.headers.get("retry-after"));
     const body = (await res.json().catch(() => null)) as {
       error?: { code?: number; message?: string };
     } | null;
@@ -62,7 +63,10 @@ async function requestWithRetry(url: string, init?: RequestInit): Promise<unknow
     const retryable =
       RETRYABLE_CODES.has(code ?? -1) || res.status >= 500 || res.status === 429;
     if (attempt < MAX_RETRIES && retryable) {
-      const backoff = Math.min(60_000, 1000 * 2 ** attempt) + Math.random() * 500;
+      const backoff =
+        (Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(45_000, retryAfter * 1000)
+          : Math.min(60_000, 1000 * 2 ** attempt)) + Math.random() * 500;
       await sleep(backoff);
       continue;
     }

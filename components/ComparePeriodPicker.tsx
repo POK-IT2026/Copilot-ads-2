@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const PRESETS: Array<{ key: "previous" | "7d" | "30d"; label: string }> = [
   { key: "previous", label: "Periodo anterior" },
@@ -29,6 +29,7 @@ function withParams(
  * un rango personalizado.
  */
 export default function ComparePeriodPicker() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preset = searchParams.get("comparePreset") ?? "previous";
@@ -44,7 +45,9 @@ export default function ComparePeriodPicker() {
   }, [searchParams]);
 
   function go(patch: Record<string, string | undefined>) {
-    window.location.assign(withParams(pathname, searchParams, patch));
+    // router.push respeta basePath /media · window.location.assign(pathname) navegaba a "/"
+    // (usePathname no incluye el basePath) y el ERP mandaba al Suite Selector.
+    router.push(withParams(pathname, searchParams, patch));
   }
 
   function selectPreset(key: "previous" | "7d" | "30d") {
